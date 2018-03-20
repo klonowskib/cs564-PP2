@@ -60,23 +60,26 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
      * insert the page into the hash table and call Set() to set the page properly and return a 
      * pointer to the frame where the page is pinned
      */ 
-    int frameNo = - 1;
-    hashTable->lookup(file, pageNo, this->clockHand);
-    if (frameNo == -1) // condition to check if a page is in the pool
+    FrameId frameNo = this->numBufs; //Will hold the frame number if the page is in the pool
+    hashTable->lookup(file, pageNo, frameNo); // Look for the page in the pool
+    if (frameNo <= this->numBufs-1) // condition to check if a page is in the pool
     {   
 	BufMgr::allocBuf(this->clockHand); //allocate the buffer frame pointed to by clockHand for the page
 	*page = file->readPage(pageNo); //Read the page in from memory
 	hashTable->insert(file, pageNo,this->clockHand); //place the page into the buffer frame	
-	bufDescTable->Set(file, pageNo); //Call to set the BufDesc properly	 
-    } 
-
+	bufDescTable->Set(file, pageNo); //Call to set the BufDesc properly	
+	return; 
+    }
     ///Case 2: Page is in the buffer pool.
     /**
      * Update the refbit and increment the pin count
      * return a pointer to the buffer frame that references the page
      */
-    else {
-	std::cout << "fuck you";
+    else 
+    {
+	bufDescTable->refbit = true;
+	bufDescTable->pinCnt++;
+	page = &bufPool[frameNo];	
     }
 }
 
