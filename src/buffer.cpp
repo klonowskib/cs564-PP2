@@ -53,33 +53,32 @@ void BufMgr::allocBuf(FrameId & frame)
 	
 void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
 {
+    FrameId frameNo = 69; 
+    try 
+    {
+    	///Case 2: Page is in the buffer pool.
+       	/**
+     	* Update the refbit and increment the pin count
+	* return a pointer to the buffer frame that references the page
+	*/
+	hashTable->lookup(file, pageNo, frameNo); // Look for the page in the pool
+ 	bufDescTable->refbit = true;
+	bufDescTable->pinCnt++;
+	page = &bufPool[frameNo];	 
+    } 
+    catch (HashNotFoundException& e) 
+    {
     ///Case 1: Page is NOT in the buffer pool.
     /**
      * If the page is not in the buffer pool, call allocBuff() method
      * once a buffer frame is allocated call file->readPage() to place the page in the frame
      * insert the page into the hash table and call Set() to set the page properly and return a 
      * pointer to the frame where the page is pinned
-     */ 
-    FrameId frameNo = this->numBufs; //Will hold the frame number if the page is in the pool
-    hashTable->lookup(file, pageNo, frameNo); // Look for the page in the pool
-    if (frameNo <= this->numBufs-1) // condition to check if a page is in the pool
-    {   
+     */
 	BufMgr::allocBuf(this->clockHand); //allocate the buffer frame pointed to by clockHand for the page
 	*page = file->readPage(pageNo); //Read the page in from memory
 	hashTable->insert(file, pageNo,this->clockHand); //place the page into the buffer frame	
 	bufDescTable->Set(file, pageNo); //Call to set the BufDesc properly	
-	return; 
-    }
-    ///Case 2: Page is in the buffer pool.
-    /**
-     * Update the refbit and increment the pin count
-     * return a pointer to the buffer frame that references the page
-     */
-    else 
-    {
-	bufDescTable->refbit = true;
-	bufDescTable->pinCnt++;
-	page = &bufPool[frameNo];	
     }
 }
 
