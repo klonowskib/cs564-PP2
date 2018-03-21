@@ -50,18 +50,18 @@ void BufMgr::allocBuf(FrameId & frame)
 {
     BufMgr::advanceClock();  //Advance the clock
     BufDesc desc =  *(bufDescTable + frame);
-    if(desc.valid); //Check the valid bit for the frame
-    
-    else if (desc.refbit) //Check if the refbit is set
-    {
-	desc.refbit = false; //Clear refbit if set	
-	BufMgr::allocBuf(frame);
+    if(desc.valid) { //Check the valid bit for the frame
+	if (desc.refbit) //Check if the refbit is set
+	{
+	    desc.refbit = false; //Clear refbit if set	
+	    BufMgr::allocBuf(frame);
+        }
+	else if (desc.pinCnt > 0) //Check if page is pinned
+	    BufMgr::allocBuf(frame); //If yes recursively call allocBuf
+	else if (desc.dirty) //Check if the dirty bit is set 
+	    desc.file->writePage(bufPool[frame]); //If yes, write the page in desc
     }
-    else if (desc.pinCnt > 0) //Check if page is pinned
-	BufMgr::allocBuf(frame); //If yes recursively call allocBuf
-    else if (desc.dirty) //Check if the dirty bit is set 
-	File::writePage(*(desc.file + desc.pageNo)); //If yes, write the page in desc
-    BufDesc::Set(*desc.file, desc.pageNo);	
+    desc.Set(desc.file, desc.pageNo);	
     
 }
 	
