@@ -1,6 +1,6 @@
 #include <iostream>
 #include <stdlib.h>
-//#include <stdio.h>
+#include <stdio.h>
 #include <cstring>
 #include <memory>
 #include "page.h"
@@ -13,12 +13,12 @@
 #include "exceptions/page_pinned_exception.h"
 #include "exceptions/buffer_exceeded_exception.h"
 
-#define PRINT_ERROR(str) \
+#define PRINT_ERROR(str)\
 { \
-	std::cerr << "On Line No:" << __LINE__ << "\n"; \
-	std::cerr << str << "\n"; \
-	exit(1); \
-}
+	std::cerr << "On Line No:" << __LINE__ << "\n";\
+	std::cerr << str << "\n";\
+	exit(1);\
+}\
 
 using namespace badgerdb;
 
@@ -82,7 +82,7 @@ int main()
             << " on page " << (*iter).page_number() << "\n";
       }
     }
-
+    
     // Retrieve the third page and add another record to it.
     Page third_page = new_file.readPage(third_page_number);
     const RecordId& rid = third_page.insertRecord("world!");

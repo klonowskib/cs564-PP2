@@ -147,7 +147,7 @@ Page File::allocatePage() {
 }
 
 Page File::readPage(const PageId page_number) const {
-  FileHeader header = readHeader();
+  FileHeader header = readHeader(); 
   if (page_number >= header.num_pages) {
     throw InvalidPageException(page_number, filename_);
   }
