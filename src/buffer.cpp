@@ -37,14 +37,16 @@ BufMgr::BufMgr(std::uint32_t bufs)
 
 BufMgr::~BufMgr() {
   //Flush out all dirty pages and deallocate individual items in buffer pool and bufDesc table
-  for (FrameId i = 0; i < this->numBufs; i++) {
-    this->flushFile(bufDescTable[i].file);
-    delete bufDescTable[i];
-    delete bufPool[i];
-  }
+  //for (FrameId i = 0; i < this->numBufs; i++) {
+  //  this->flushFile(bufDescTable[i].file);
+  //  delete bufDescTable[i];
+  //  delete bufPool[i];
+  //}
   // Deallocate buffer pool and bufDesc table array object
   delete[] bufDescTable;
   delete[] bufPool; 
+  bufDescTable = NULL;
+  bufPool = NULL;
 }
 
 void BufMgr::advanceClock()
@@ -57,8 +59,8 @@ void BufMgr::advanceClock()
 
 void BufMgr::allocBuf(FrameId & frame) 
 {
-    FrameId temp = frame;
-    int flag = 0, pinned = 0;
+    int flag = 0;
+    std::uint32_t  pinned = 0;
     while(pinned < this->numBufs-1)
     {
       BufMgr::advanceClock();  //Advance the clock
@@ -100,8 +102,8 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
     	* return a pointer to the buffer frame that references the page
     	*/
     	hashTable->lookup(file, pageNo, frameNo); // Look for the page in the pool
-     	bufDescTable[frameNo]->refbit = true;
-    	bufDescTable[frameNo]->pinCnt++;
+     	bufDescTable[frameNo].refbit = true;
+    	bufDescTable[frameNo].pinCnt++;
     	page = &bufPool[frameNo];	 
     } 
     catch (HashNotFoundException& e) 
@@ -116,7 +118,7 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
     	BufMgr::allocBuf(this->clockHand); //allocate the buffer frame pointed to by clockHand for the page
     	*page = file->readPage(pageNo); //Read the page in from memory
     	hashTable->insert(file, pageNo,this->clockHand); //place the page into the buffer frame	
-    	bufDescTable[this->clockHand]->Set(file, pageNo); //Call to set the BufDesc properly	
+    	bufDescTable[this->clockHand].Set(file, pageNo); //Call to set the BufDesc properly	
     }
 }
 
@@ -147,20 +149,20 @@ void BufMgr::flushFile(const File* file)
   // scan bufDesc Table for pages belonging to file
   for (FrameId i = 0; i < this->numBufs-1; i++)
   {
-    if (bufDescTable[i]->file == file)
+    if (bufDescTable[i].file == file)
     {
       //found page of the given file
-      if (bufDescTable[i]->pinCnt > 0)
-        throw PagePinnedException(file->filename(), bufDescTable[i]->pageNo, i);
-      if (bufDescTable[i]->valid == false)
-        throw BadBufferException(i, bufDescTable[i]->dirty, bufDescTable[i]->valid, bufDescTable[i]->refbit);
-      if (bufDescTable[i]->dirty)
+      if (bufDescTable[i].pinCnt > 0)
+        throw PagePinnedException(file->filename(), bufDescTable[i].pageNo, i);
+      if (bufDescTable[i].valid == false)
+        throw BadBufferException(i, bufDescTable[i].dirty, bufDescTable[i].valid, bufDescTable[i].refbit);
+      if (bufDescTable[i].dirty)
       {
-        file->writePage(this->bufPool[i]);
-        bufDescTable[i]->dirty = false;
+        bufDescTable[i].file->writePage(this->bufPool[i]);
+        bufDescTable[i].dirty = false;
       }
-      this->hashTable->remove(file, bufDescTable[i]->pageNo);
-      bufDescTable[i]->Clear();
+      this->hashTable->remove(file, bufDescTable[i].pageNo);
+      bufDescTable[i].Clear();
     }
   }
 
