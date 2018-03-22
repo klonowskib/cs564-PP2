@@ -36,6 +36,15 @@ BufMgr::BufMgr(std::uint32_t bufs)
 
 
 BufMgr::~BufMgr() {
+  //Flush out all dirty pages and deallocate individual items in buffer pool and bufDesc table
+  for (FrameId i = 0; i < this->numBufs; i++) {
+    this->flushFile(bufDescTable[i].file);
+    delete bufDescTable[i];
+    delete bufPool[i];
+  }
+  // Deallocate buffer pool and bufDesc table array object
+  delete[] bufDescTable;
+  delete[] bufPool; 
 }
 
 void BufMgr::advanceClock()
@@ -48,21 +57,33 @@ void BufMgr::advanceClock()
 
 void BufMgr::allocBuf(FrameId & frame) 
 {
-    BufMgr::advanceClock();  //Advance the clock
-    BufDesc desc =  *(bufDescTable + frame);
-    if(desc.valid) { //Check the valid bit for the frame
-	if (desc.refbit) //Check if the refbit is set
-	{
-	    desc.refbit = false; //Clear refbit if set	
-	    BufMgr::allocBuf(frame);
+    FrameId temp = frame;
+    int flag = 0, pinned = 0;
+    while(pinned < this->numBufs-1)
+    {
+      BufMgr::advanceClock();  //Advance the clock
+      BufDesc desc =  *(bufDescTable + frame);
+      if(desc.valid) 
+      { //Check the valid bit for the frame
+        if (desc.refbit) //Check if the refbit is set
+        {
+          desc.refbit = false; //Clear refbit if set  
+          continue;
         }
-	else if (desc.pinCnt > 0) //Check if page is pinned
-	    BufMgr::allocBuf(frame); //If yes recursively call allocBuf
-	else if (desc.dirty) //Check if the dirty bit is set 
-	    desc.file->writePage(bufPool[frame]); //If yes, write the page in desc
+        else if (desc.pinCnt > 0) //Check if page is pinned
+        {
+          pinned++;
+          continue;
+        }
+        else if (desc.dirty) //Check if the dirty bit is set 
+            desc.file->writePage(bufPool[frame]); //If yes, write the page in desc
+        this->hashTable->remove(desc.file, desc.pageNo);
+      }
+      flag = 1;
+      break;
     }
-    desc.Set(desc.file, desc.pageNo);	
-    
+    if (!flag)
+        throw BufferExceededException();
 }
 	
 void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
@@ -76,7 +97,7 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
 	* return a pointer to the buffer frame that references the page
 	*/
 	hashTable->lookup(file, pageNo, frameNo); // Look for the page in the pool
- 	bufDescTable->refbit = true;
+ 	bufDescTable[]->refbit = true;
 	bufDescTable->pinCnt++;
 	page = &bufPool[frameNo];	 
     } 
@@ -98,6 +119,22 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
 
 void BufMgr::unPinPage(File* file, const PageId pageNo, const bool dirty) 
 {
+
+  // decrement pinCnt of the frame containing (file, pageNo)
+  FrameId frameNo;
+  try
+  {
+    this->hashTable->lookup(file, pageNo, frameNo);
+    if (this->bufDescTable[frameNo].pinCnt == 0)
+    {
+      throw PageNotPinnedException()
+    }
+    this->bufDescTable[frameNo].pinCnt--;
+  }
+  catch (HashNotFoundException& e)
+  {
+
+  }
 }
 
 void BufMgr::flushFile(const File* file) 
