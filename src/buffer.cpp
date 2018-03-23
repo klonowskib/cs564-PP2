@@ -181,6 +181,7 @@ void BufMgr::flushFile(const File* file)
 {
   /**
    * scan bufDesc Table for pages belonging to file
+   * and check for existence of pinned and invalid pages belonging to the file
    */
   for (FrameId i = 0; i < this->numBufs-1; i++)
   {
@@ -192,7 +193,17 @@ void BufMgr::flushFile(const File* file)
         throw PagePinnedException(file->filename(), bufDescTable[i].pageNo, i);
       if (bufDescTable[i].valid == false)
         throw BadBufferException(i, bufDescTable[i].dirty, bufDescTable[i].valid, bufDescTable[i].refbit);
-      
+    }
+  }
+  /**
+   * scan bufDesc Table again for the pages belonging to the file
+   * if page is dirty, flush to disk and unset dirty flag
+   * remove the page entry from hashTable and clear frame description
+   */
+  for (FrameId i = 0; i < this->numBufs-1; i++)
+  {
+    if (bufDescTable[i].file == file)
+    {
       /// if the page is not pinned or invalid,
       /// flush page to disk, if page is dirty
       if (bufDescTable[i].dirty)
@@ -207,7 +218,6 @@ void BufMgr::flushFile(const File* file)
       this->bufDescTable[i].Clear();
     }
   }
-
 }
 
 void BufMgr::allocPage(File* file, PageId &pageNo, Page*& page) 
