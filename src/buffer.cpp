@@ -87,7 +87,7 @@ void BufMgr::allocBuf(FrameId & frame)
      * Loop through the frames till a unpinned frame is found 
      * or no unpinned frame exists (throw BufferExceededException)
      */
-    while(pinned < this->numBufs-1)
+    while(pinned < this->numBufs)
     {
       BufMgr::advanceClock();  //Advance the clock
       /// if frame is valid and
@@ -95,14 +95,15 @@ void BufMgr::allocBuf(FrameId & frame)
       ///   else if frame pinned, continue
       ///   else if frame dirty, flush the page and unset the dirty flag
       /// else
-      if(this->bufDescTable[frame].valid) 
+
+      if(bufDescTable[frame].valid)
       {
-        if (this->bufDescTable[frame].refbit)
+        if (bufDescTable[frame].refbit)
         {
-          this->bufDescTable[frame].refbit = false;
+          bufDescTable[frame].refbit = false;
           continue;
         }
-        else if (this->bufDescTable[frame].pinCnt > 0)
+        else if (bufDescTable[frame].pinCnt > 0)
         {
           pinned++;
           continue;
