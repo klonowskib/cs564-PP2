@@ -52,13 +52,12 @@ BufMgr::~BufMgr() {
   { 
     if (this->bufDescTable[i].dirty)
     {
-      this->bufDescTable[i].file->writePage(this->bufPool[i]);
-      this->bufDescTable[i].dirty = false;
-    }
-    if (this->bufDescTable[i].valid)
-    { 
-      this->hashTable->remove(this->bufDescTable[i].file, this->bufDescTable[i].pageNo);
-      this->bufDescTable[i].Clear();
+      if (File::isOpen(this->bufDescTable[i].file->filename())) 
+      {
+        this->bufDescTable[i].file->writePage(this->bufPool[i]);
+        this->bufDescTable[i].dirty = false;  
+      }
+      
     }
   }
   delete[] bufDescTable;
