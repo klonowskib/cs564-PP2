@@ -83,34 +83,33 @@ void BufMgr::allocBuf(FrameId & frame)
      * Loop through the frames till a unpinned frame is found 
      * or no unpinned frame exists (throw BufferExceededException)
      */
-    while(pinned < this->numBufs-1)
+    while(pinned < this->numBufs)
     {
       BufMgr::advanceClock();  //Advance the clock
-      BufDesc desc =  *(bufDescTable + frame);
-      /// if frame is valid and
+            /// if frame is valid and
       ///   if refbit set, unset refbit and continue
       ///   else if frame pinned, continue
       ///   else if frame dirty, flush the page and unset the dirty flag
       /// else
-      if(desc.valid) 
+      if(bufDescTable[frame].valid)
       {
-        if (desc.refbit)
+        if (bufDescTable[frame].refbit)
         {
-          desc.refbit = false;
+          bufDescTable[frame].refbit = false;
           continue;
         }
-        else if (desc.pinCnt > 0)
+        else if (bufDescTable[frame].pinCnt > 0)
         {
           pinned++;
           continue;
         }
-        else if (desc.dirty) //Check if the dirty bit is set 
+        else if (bufDescTable[frame].dirty) //Check if the dirty bit is set 
         {
-            desc.file->writePage(bufPool[frame]); //If yes, write the page in desc
-            desc.dirty = false;
+            bufDescTable[frame].file->writePage(bufPool[frame]); //If yes, write the page in desc
+            bufDescTable[frame].dirty = false;
         }
         // remove the page from the hashTable
-        this->hashTable->remove(desc.file, desc.pageNo);
+        this->hashTable->remove(bufDescTable[frame].file, bufDescTable[frame].pageNo);
       }
       flag = 1;
       break;
@@ -145,10 +144,11 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
        * Reference argument page will return a pointer to the frame where the page is pinned
        */
     	this->allocBuf(this->clockHand); // allocate the buffer frame pointed to by clockHand for the page
-    	*page = file->readPage(pageNo); // read the page in from memory
-      this->bufPool[this->clockHand] = *page; // set the page in the buffer pool
+	Page temp = file->readPage(pageNo);
+        this->bufPool[this->clockHand] = temp; // set the page in the buffer pool
     	this->hashTable->insert(file, pageNo,this->clockHand); // place the page into the buffer frame	
     	this->bufDescTable[this->clockHand].Set(file, pageNo); // call to set the BufDesc properly	
+	page = &(this->bufPool[this->clockHand]);
     }
 }
 
@@ -225,7 +225,7 @@ void BufMgr::allocPage(File* file, PageId &pageNo, Page*& page)
   /// allocate an empty page in file
   /// and obtain buffer pool frame
   Page temp = file->allocatePage();
-  pageNo = (temp).page_number();
+  pageNo = temp.page_number();
   FrameId frameNo;
   this->allocBuf(this->clockHand);
   frameNo = this->clockHand;
