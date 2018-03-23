@@ -254,7 +254,7 @@ void BufMgr::disposePage(File* file, const PageId pageNo)
   this->bufDescTable[frameNo].Clear();
   this->hashTable->remove(file, pageNo);
   // TODO: do we need to set the page entry in bufPool to NULL explicitly?
-  this->bufPool[frameNo] = NULL;
+  // this->bufPool[frameNo] = NULL;
   /** 
    * delete page from file
    */
