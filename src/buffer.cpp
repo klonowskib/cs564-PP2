@@ -54,8 +54,12 @@ BufMgr::~BufMgr() {
     {
       this->bufDescTable[i].file->writePage(this->bufPool[i]);
       this->bufDescTable[i].dirty = false;
-    }    
-    this->hashTable->remove(this->bufDescTable[i].file, this->bufDescTable[i].pageNo);
+    }
+    if (this->bufDescTable[i].valid)
+    { 
+      this->hashTable->remove(this->bufDescTable[i].file, this->bufDescTable[i].pageNo);
+      this->bufDescTable[i].Clear();
+    }
   }
   delete[] bufDescTable;
   delete[] bufPool; 
@@ -86,31 +90,31 @@ void BufMgr::allocBuf(FrameId & frame)
     while(pinned < this->numBufs-1)
     {
       BufMgr::advanceClock();  //Advance the clock
-      BufDesc desc =  *(bufDescTable + frame);
       /// if frame is valid and
       ///   if refbit set, unset refbit and continue
       ///   else if frame pinned, continue
       ///   else if frame dirty, flush the page and unset the dirty flag
       /// else
-      if(desc.valid) 
+      if(this->bufDescTable[frame].valid) 
       {
-        if (desc.refbit)
+        if (this->bufDescTable[frame].refbit)
         {
-          desc.refbit = false;
+          this->bufDescTable[frame].refbit = false;
           continue;
         }
-        else if (desc.pinCnt > 0)
+        else if (this->bufDescTable[frame].pinCnt > 0)
         {
           pinned++;
           continue;
         }
-        else if (desc.dirty) //Check if the dirty bit is set 
+        else if (this->bufDescTable[frame].dirty) //Check if the dirty bit is set 
         {
-            desc.file->writePage(bufPool[frame]); //If yes, write the page in desc
-            desc.dirty = false;
+            this->bufDescTable[frame].file->writePage(bufPool[frame]); //If yes, write the page in desc
+            this->bufDescTable[frame].dirty = false;
         }
         // remove the page from the hashTable
-        this->hashTable->remove(desc.file, desc.pageNo);
+        this->hashTable->remove(this->bufDescTable[frame].file, this->bufDescTable[frame].pageNo);
+        this->bufDescTable[frame].Clear();
       }
       flag = 1;
       break;
@@ -145,10 +149,11 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
        * Reference argument page will return a pointer to the frame where the page is pinned
        */
     	this->allocBuf(this->clockHand); // allocate the buffer frame pointed to by clockHand for the page
-    	*page = file->readPage(pageNo); // read the page in from memory
-      this->bufPool[this->clockHand] = *page; // set the page in the buffer pool
-    	this->hashTable->insert(file, pageNo,this->clockHand); // place the page into the buffer frame	
+    	Page temp = file->readPage(pageNo); // read the page in from memory
+      this->bufPool[this->clockHand] = temp; // set the page in the buffer pool
+    	this->hashTable->insert(file, pageNo, this->clockHand); // place the page into the buffer frame	
     	this->bufDescTable[this->clockHand].Set(file, pageNo); // call to set the BufDesc properly	
+      page = &(this->bufPool[this->clockHand]);
     }
 }
 
@@ -224,16 +229,18 @@ void BufMgr::allocPage(File* file, PageId &pageNo, Page*& page)
 {
   /// allocate an empty page in file
   /// and obtain buffer pool frame
-  *page = file->allocatePage();
-  pageNo = (*page).page_number();
+  Page temp = file->allocatePage();
+  pageNo = temp.page_number();
   FrameId frameNo;
-  this->allocBuf(frameNo);
+  this->allocBuf(this->clockHand);
+  frameNo = this->clockHand;
   // TODO: Should the RHS of assignment be page or *page?
-  this->bufPool[frameNo] = *page;
+  this->bufPool[frameNo] = temp;
   /// insert an entry into hashTable
   /// set the frame description
   this->hashTable->insert(file, pageNo, frameNo);
   this->bufDescTable[frameNo].Set(file, pageNo);
+  page = &(this->bufPool[frameNo]);
 }
 
 void BufMgr::disposePage(File* file, const PageId pageNo)
@@ -251,8 +258,8 @@ void BufMgr::disposePage(File* file, const PageId pageNo)
   ///   and delete page from bufPool
   if (this->bufDescTable[frameNo].pinCnt > 0)
     throw PagePinnedException(file->filename(), pageNo, frameNo);  
-  this->bufDescTable[frameNo].Clear();
   this->hashTable->remove(file, pageNo);
+  this->bufDescTable[frameNo].Clear();
   // TODO: do we need to set the page entry in bufPool to NULL explicitly?
   // this->bufPool[frameNo] = NULL;
   /** 
