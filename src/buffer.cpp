@@ -224,16 +224,18 @@ void BufMgr::allocPage(File* file, PageId &pageNo, Page*& page)
 {
   /// allocate an empty page in file
   /// and obtain buffer pool frame
-  *page = file->allocatePage();
-  pageNo = (*page).page_number();
+  Page temp = file->allocatePage();
+  pageNo = (temp).page_number();
   FrameId frameNo;
-  this->allocBuf(frameNo);
+  this->allocBuf(this->clockHand);
+  frameNo = this->clockHand;
   // TODO: Should the RHS of assignment be page or *page?
-  this->bufPool[frameNo] = *page;
+  this->bufPool[frameNo] = temp;
   /// insert an entry into hashTable
   /// set the frame description
   this->hashTable->insert(file, pageNo, frameNo);
   this->bufDescTable[frameNo].Set(file, pageNo);
+  page = &(this->bufPool[frameNo]);
 }
 
 void BufMgr::disposePage(File* file, const PageId pageNo)
